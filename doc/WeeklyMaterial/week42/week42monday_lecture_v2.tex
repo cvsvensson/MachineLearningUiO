@@ -128,14 +128,14 @@ One sample $\bm{x}$, layers $l=1,\dots,L$, $\bm{a}^{0}=\bm{x}$:
 \begin{itemize}
   \item $\bm{W}^{l}$ has shape (nodes out, nodes in)
   \item $f$ acts element by element; the last layer has its own
-        \emph{output} activation
+        \emph{output} activation $f_{L}$
   \item the cost $C$ compares the output $\bm{a}^{L}$ with the target
         $\bm{y}$
 \end{itemize}
 \vspace{4pt}
 \footnotesize In code with many samples we stack them as rows,
-$\bm{Z}^{l}=\bm{A}^{l-1}\bm{W}^{l}+\bm{b}^{l}$: the same equations,
-transposed.
+$\bm{Z}^{l}=\bm{A}^{l-1}\bm{W}^{l}+\bm{b}^{l}$, so $\bm{W}^{l}$ is stored
+as (in, out): the same equations, transposed.
 \end{column}
 \end{columns}
 \end{frame}
@@ -160,16 +160,20 @@ $\delta^{l+1}$, then the gradients.  Note: node $j$ in layer $l$ feeds
 \begin{block}{Result ($\circ$: element-wise product)}
 \vspace{-6pt}
 \begin{align*}
-  \bm{\delta}^{L}&=f'(\bm{z}^{L})\circ\frac{\partial C}{\partial\bm{a}^{L}}\\
+  \bm{\delta}^{L}&=f_{L}'(\bm{z}^{L})\circ\frac{\partial C}{\partial\bm{a}^{L}}\\
   \bm{\delta}^{l}&=\bigl((\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}\bigr)\circ f'(\bm{z}^{l})\\
   \frac{\partial C}{\partial\bm{b}^{l}}&=\bm{\delta}^{l},\qquad
   \frac{\partial C}{\partial\bm{W}^{l}}=\bm{\delta}^{l}\,(\bm{a}^{l-1})^{T}
 \end{align*}
 \end{block}
+\vspace{-6pt}
+\footnotesize Key step, summing over every path through layer $l+1$:
+$\delta^{l}_{j}=\sum_{k}\delta^{l+1}_{k}\,w^{l+1}_{kj}\,f'(z^{l}_{j})$.
 \small
 \begin{itemize}
   \item Start at the output, go \emph{backwards}.  Each $\bm{\delta}^{l}$
-        reuses $\bm{\delta}^{l+1}$.
+        reuses $\bm{\delta}^{l+1}$: the gradient costs about one extra
+        forward pass.
   \item Weight gradient $=$ error at the node it goes \emph{into} $\times$
         signal from the node it comes \emph{from}.
   \item The error is multiplied by $f'$ in every layer.
@@ -210,20 +214,49 @@ learns (``dead'').
 \begin{block}{What matters}
 $f$ must be \textbf{non-linear}: otherwise the whole network is a single
 linear map.  For training, $f'$ matters.  Backpropagation multiplies by
-$f'$ once per layer, so with $L$ sigmoid layers the error shrinks by up to
-$(\tfrac14)^{L}$: the \emph{vanishing gradient}.  This is why ReLU is the
+$f'$ once per layer, so with $L$ sigmoid layers the $f'$ factors alone
+multiply the error by at most $(\tfrac14)^{L}$: the \emph{vanishing
+gradient}.  This is why ReLU is the
 default in deep networks.
 \end{block}
 \end{frame}
+
+\begin{quickq}[why not start at zero?]
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\question{A network with tanh hidden layers starts with \emph{all}
+weights and biases equal to zero.  Look at the four equations: which
+gradients are non-zero after the first backward pass?}
+\vspace{4pt}
+\begin{align*}
+  \bm{\delta}^{l}&=\bigl((\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}\bigr)\circ f'(\bm{z}^{l})\\
+  \frac{\partial C}{\partial\bm{b}^{l}}&=\bm{\delta}^{l},\qquad
+  \frac{\partial C}{\partial\bm{W}^{l}}=\bm{\delta}^{l}\,(\bm{a}^{l-1})^{T}
+\end{align*}
+\end{column}
+\begin{column}{0.48\textwidth}
+\answer{Only the \textbf{output bias}.
+\begin{itemize}
+  \item All hidden $\bm{a}^{l}=\tanh(\bm{0})=\bm{0}$, so
+        $\partial C/\partial\bm{W}^{l}=\bm{\delta}^{l}(\bm{a}^{l-1})^{T}=0$
+        for $l\ge2$.
+  \item $\bm{\delta}^{l}=(\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}=\bm{0}$ in
+        every hidden layer, so $\bm{W}^{1}$ and the hidden biases get
+        nothing.
+\end{itemize}
+The network is stuck: it can only learn a constant.\\[3pt]
+All weights equal but $\neq0$: every unit in a layer gets the same
+gradient and stays a copy of the others.  \textbf{Random weights break
+the symmetry.}}
+\end{column}
+\end{columns}
+\end{quickq}
 
 \begin{frame}{Initialising the weights}
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
 \small
-\textbf{Not all equal} (e.g.\ all zero): then every unit in a layer computes
-the same thing, gets the same gradient, and stays identical.  Random
-weights break the symmetry.\\[4pt]
-\textbf{The scale matters.}  With $M$ inputs per node and weights of
+\textbf{Random}, to break the symmetry.  \textbf{The scale matters.}  With $M$ inputs per node and weights of
 variance $\sigma_w^{2}$:
 \[
   \operatorname{Var}(z)\approx M\,\sigma_w^{2}\,\overline{a^{2}}
@@ -238,11 +271,12 @@ variance $\sigma_w^{2}$:
 \begin{column}{0.48\textwidth}
 \begin{block}{Rule: keep $\operatorname{Var}(z)$ the same in every layer}
 \[
-  \sigma_w^{2}=\frac{1}{M}\ \text{(tanh, sigmoid)},\qquad
+  \sigma_w^{2}=\frac{1}{M}\ \text{(tanh)},\qquad
   \sigma_w^{2}=\frac{2}{M}\ \text{(ReLU)}
 \]
 ReLU sets half of its inputs to zero, hence the factor 2 (``He
-initialisation'').
+initialisation'').  Sigmoid: $\sigma'\le\frac14$, so with $1/M$ the
+gradients still shrink layer by layer.
 \end{block}
 \small The right scale depends on the \emph{activation function}, and
 it decides whether \emph{gradients} survive the backward pass.
@@ -290,6 +324,9 @@ $K$ classes, $\bm{y}$ one-hot & softmax, $a_k=\frac{e^{z_k}}{\sum_le^{z_l}}$ & $
   \item The \textbf{cost} matches it: each is the negative log-likelihood of
         a Gaussian, Bernoulli or categorical distribution.
 \end{itemize}
+\vspace{4pt}
+\uncover<2->{\footnotesize Softmax is not element-wise: there, $f'$ is the
+Jacobian $\partial a_k/\partial z_j$, but the same cancellation happens.}
 \end{column}
 \begin{column}{0.5\textwidth}
 \begin{boardbox}{W2}
@@ -298,11 +335,13 @@ with cross entropy.
 \end{boardbox}
 \pause
 \begin{block}{The connection}
-$f'$ \emph{cancels} against $\partial C/\partial a$:
+For all three pairs, $f'$ \emph{cancels} against $\partial C/\partial a$.
+Sigmoid: $\sigma'=a(1-a)$ and
+$\frac{\partial C}{\partial a}=\frac{a-y}{a(1-a)}$, so
 \[
-  \boxed{\;\bm{\delta}^{L}=\bm{a}^{L}-\bm{y}\;}
+  \boxed{\;\bm{\delta}^{L}=\bm{a}^{L}-\bm{y}\;}\quad
+  \text{prediction minus target.}
 \]
-prediction minus target, for all three pairs.
 \end{block}
 \end{column}
 \end{columns}
@@ -384,8 +423,8 @@ hidden layer is wide enough.
 \end{column}
 \end{columns}
 \vspace{4pt}
-\small Why deep networks, then?  Depth can do the same job with far fewer
-units.
+\small Why deep networks, then?  For many functions, depth does the same
+job with far fewer units.
 \end{frame}
 
 \begin{frame}{Why it works, in one dimension: ReLU units are kinks}
@@ -406,6 +445,7 @@ Build a ``hat'' from three ReLU units.  Then build any curve from hats.
   \draw[->,gray] (-0.5,0) -- (3.3,0) node[right,font=\scriptsize]{$x$};
   \foreach \t in {1,2} \draw[gray] (\t,0.05) -- (\t,-0.05) node[below,font=\scriptsize]{$\t$};
   \draw[very thick,structure.fg] (-0.5,0) -- (0,0) -- (1,0.5) -- (2,0) -- (3.2,0);
+  \node[above,font=\scriptsize] at (1,0.5) {$1$};
 \end{tikzpicture}\par
 \raggedright
 Hats at $N$ points $=$ connect-the-dots.  More units, smaller error.
@@ -586,7 +626,8 @@ after every step.  The optimiser only has to solve the equation.
 \end{block}
 \begin{block}{The bad}
 $g_t$ must be designed by hand for every problem.  A condition on the
-derivative, like $g'(1)=0$, or a curved domain: hard or impossible.
+derivative, like $g'(1)=0$, needs a trick.  A curved boundary in 2D or
+3D: impractical.
 \end{block}}
 \end{column}
 \end{columns}
@@ -594,29 +635,42 @@ derivative, like $g'(1)=0$, or a curved domain: hard or impossible.
 
 \begin{frame}{Results against standard methods}
 \centering
-\includegraphics[width=0.8\textwidth]{v2_ode_results}\par
+\includegraphics[width=0.72\textwidth]{v2_ode_results}\par
 \raggedright
 \begin{columns}[T]
 \begin{column}{0.52\textwidth}
 \small
 Logistic growth is a \emph{non-linear} equation, but has the same trial
-solution $g_0+xN$; only the residual changes.\\[4pt]
+solution $g_0+xN$; only the residual changes.  (Plots: $\Delta=0.1$, so
+the points are visible.)\\[4pt]
+\onslide<2->{
 \footnotesize
-\begin{tabular}{@{}lr@{\qquad}lr@{}}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lr@{\quad}lr@{}}
 \toprule
 \multicolumn{2}{@{}l}{Logistic, max error} & \multicolumn{2}{l@{}}{Poisson, max error}\\
 \midrule
 Euler, $\Delta t=0.01$ & $9\times10^{-4}$ & FD, $\Delta x=0.01$ & $2\times10^{-5}$\\
+RK4, $\Delta t=0.01$ & $2\times10^{-10}$ & & \\
 network & $1\times10^{-4}$ & network & $1\times10^{-5}$\\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{column}
 \begin{column}{0.46\textwidth}
+\only<1>{%
+\setbeamercolor{block title}{bg=structure.fg,fg=white}%
+\setbeamercolor{block body}{bg=structure.fg!8}%
+\begin{block}{Guess first}
+Network or standard method: which is more \emph{accurate}?  Which is
+\emph{faster}?
+\end{block}}
+\only<2->{%
 \begin{block}{Read it honestly}
-The network is accurate.  But Euler and finite differences take
-\emph{microseconds}, the network thousands of training steps.  For simple
-equations like these the standard methods win.
-\end{block}
+The network beats Euler, but a better method (RK4) is far more accurate.
+And the standard methods take \emph{microseconds}, the network thousands
+of training steps.  For simple equations like these the standard methods
+win.
+\end{block}}
 \end{column}
 \end{columns}
 \end{frame}
@@ -643,18 +697,17 @@ Three conditions, one trial solution:
 \centering
 \includegraphics[width=0.74\textwidth]{v2_diffusion}\par
 \raggedright\small
-The error is exactly zero on the three edges (built into $g_t$), and
-largest near $t=0$, where the solution changes fastest: max error
-$1\times10^{-2}$.  A standard finite-difference scheme gets
-$1.5\times10^{-3}$, in milliseconds.
+Error exactly zero on the three edges (built into $g_t$), largest near
+$t=0$ where the solution changes fastest: max $1\times10^{-2}$.  Finite
+differences: $1.5\times10^{-3}$, in milliseconds.
 \end{frame}
 
 \begin{frame}{Soft constraints: physics-informed neural networks (PINNs)}
 \begin{columns}[T]
 \begin{column}{0.52\textwidth}
 \small
-Instead of building $g_t$ by hand: let the network \emph{be} the solution,
-$u\approx N(x,t)$, and add the conditions to the cost as penalties:
+Instead of building $g_t$ by hand: let the network \emph{be} the solution
+($u$, like $g$ before), $u\approx N(x,t)$, and add the conditions to the cost as penalties:
 \[
   L=L_{\mathrm{PDE}}+\lambda\,(L_{\mathrm{IC}}+L_{\mathrm{BC}})
 \]
@@ -697,27 +750,48 @@ soft, $\lambda=10$ & $6.5\times10^{-3}$ & $6\times10^{-3}$\\
 \end{columns}
 \end{frame}
 
-\begin{frame}{Why soft constraints at all?  Inverse problems}
+\begin{quickq}[a small residual, a wrong answer]
+\question{We solve $\partial_tu=\partial_x^{2}u$ with the soft cost
+$L=L_{\mathrm{PDE}}+\lambda(L_{\mathrm{IC}}+L_{\mathrm{BC}})$, but use a
+\textbf{ReLU} network $u=N(x,t)$.  What does training converge to?}
+\answer{$N$ is piecewise linear in $x$: all its curvature sits in the kinks,
+which the collocation points never hit.  So automatic differentiation returns
+$\partial_x^{2}N=0$ at every sample, and
+$L_{\mathrm{PDE}}=\frac1n\sum_i(\partial_tN)^{2}$.\\[3pt]
+The optimiser makes $N$ \emph{independent of $t$}: a piecewise-linear
+$N\approx\sin\pi x$ for all times.  Initial and boundary conditions hold, the
+sampled residual is close to zero, and the solution never diffuses.  We tried
+it: cost $6\times10^{-4}$, but RMSE $0.65$ (hard trial solution:
+$1.8\times10^{-3}$).\\[3pt]
+\textbf{Satisfying the PDE at almost every point does not mean solving it.}
+The sampled residual only measures the true error if $N$ is smooth enough
+($C^{2}$ in $x$), so use smooth activations, and always check against
+something you know.}
+\end{quickq}
+
+\begin{frame}{Why soft constraints at all? Inverse problems}
 \begin{columns}[T]
-\begin{column}{0.4\textwidth}
+\begin{column}{0.57\textwidth}
 \small
 $\partial_tu=D\,\partial_x^{2}u$ with \textbf{$D$ unknown}.  No initial or
-boundary conditions, only $40$ noisy measurements $y_i$.\\[4pt]
-Treat $D$ as one more trainable parameter:
-\begin{align*}
-  L(N,D)&=\tfrac1n\textstyle\sum_j\bigl(\partial_tN-D\,\partial_x^{2}N\bigr)^{2}_j\\
-  &\quad+\lambda\tfrac1{40}\textstyle\sum_i\bigl(N(x_i,t_i)-y_i\bigr)^{2}
-\end{align*}
-No trial solution is possible here: soft constraints are the only option.
+boundary conditions, only $40$ noisy measurements $y_i$.  Treat $D$ as one
+more trainable parameter:
+\[
+  L(N,D)=\tfrac1n\textstyle\sum_j\bigl(\partial_tN-D\,\partial_x^{2}N\bigr)^{2}_j
+  +\lambda\tfrac1{40}\textstyle\sum_i\bigl(N(x_i,t_i)-y_i\bigr)^{2}
+\]
 \end{column}
-\begin{column}{0.58\textwidth}
-\includegraphics[width=\textwidth]{v2_pinn_inverse}\par
+\begin{column}{0.41\textwidth}
 \small
+No trial solution is possible here: soft constraints are the only option.\\[4pt]
 True $D=0.5$.  Three different starting guesses all give $D\approx0.51$.
 \textbf{But} with five times more noise: $D=0.69$.  A recovered parameter
 needs an error bar.
 \end{column}
 \end{columns}
+\vspace{2pt}
+\centering
+\includegraphics[width=0.9\textwidth]{v2_pinn_inverse}
 \end{frame}
 
 \begin{frame}{Neural networks versus standard methods}
