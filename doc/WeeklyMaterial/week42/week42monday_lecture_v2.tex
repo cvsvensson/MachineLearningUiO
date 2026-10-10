@@ -3,11 +3,16 @@
 %% result and the evidence (figures, numbers); the derivations are done on
 %% the blackboard.  Blue "On the board" boxes mark where the lecturer turns
 %% to the board; the result appears on the next click.  The board work is
-%% written out in week42monday_whiteboard_v2.md (sections W1-W6).
+%% written out in week42monday_whiteboard_v2.md (sections W1-W4).
+%% Week 41 Monday already derived the four backpropagation equations,
+%% delta^L = a - y for the three output/cost pairs, vanishing gradients and
+%% Xavier/He; here they are a short recap, and the time goes to Part 4.
 %% The full version with all details and code is week42monday.tex.
+%% "The book"/"Course book": M. Hjorth-Jensen, Machine Learning and the
+%% Physical Sciences (doc/BookML/Lecturebook.pdf, = doc/LectureNotes).
 %% Figures: ./figures/v2_*.png, made by week42monday_v2.ipynb
 %% (set SAVE_FIGURES = True in its first code cell to regenerate them).
-%% Build:  tectonic week42monday_lecture_v2.tex   (or pdflatex twice)
+%% Build:  tectonic --outdir . week42monday_lecture_v2.tex
 \documentclass[10pt,aspectratio=169]{beamer}
 \usetheme{red_plain}
 \usepackage[T1]{fontenc}
@@ -140,46 +145,131 @@ as (in, out): the same equations, transposed.
 \end{columns}
 \end{frame}
 
-\begin{frame}{The four equations of backpropagation}
+\begin{frame}{Backpropagation with one node per layer}
+\centering
+\begin{tikzpicture}[x=1.55cm,>=Stealth,
+    v/.style={circle,draw,minimum size=0.8cm,inner sep=0pt,font=\small},
+    lab/.style={font=\scriptsize,above,midway}]
+  \node[v,fill=blue!10]   (x)  at (0,0) {$x$};
+  \node[v,fill=orange!20] (z1) at (1,0) {$z^{1}$};
+  \node[v,fill=orange!20] (a1) at (2,0) {$a^{1}$};
+  \node                   (dd) at (3,0) {$\cdots$};
+  \node[v,fill=green!15]  (zL) at (4,0) {$z^{L}$};
+  \node[v,fill=green!15]  (aL) at (5,0) {$a^{L}$};
+  \node[v,fill=red!12]    (C)  at (6,0) {$C$};
+  \draw[->] (x)--(z1)  node[lab]{$w^{1},b^{1}$};
+  \draw[->] (z1)--(a1) node[lab]{$f$};
+  \draw[->] (a1)--(dd);
+  \draw[->] (dd)--(zL) node[lab]{$w^{L},b^{L}$};
+  \draw[->] (zL)--(aL) node[lab]{$f_{L}$};
+  \draw[->] (aL)--(C)  node[lab]{$y$};
+\end{tikzpicture}\par
+\vspace{2pt}
+\raggedright
 \begin{columns}[T]
-\begin{column}{0.52\textwidth}
+\begin{column}{0.37\textwidth}
 \small
-We want $\partial C/\partial w^{l}_{jk}$ and $\partial C/\partial b^{l}_{j}$
-for every layer.  Key quantity: the \emph{error} of node $j$ in layer $l$,
+All scalars: $z^{l}=w^{l}a^{l-1}+b^{l}$, $a^{l}=f(z^{l})$, $a^{0}=x$.
+The \emph{error} of layer $l$ is
 \[
-  \delta^{l}_{j}=\frac{\partial C}{\partial z^{l}_{j}}.
+  \delta^{l}=\frac{\partial C}{\partial z^{l}}.
 \]
 \begin{boardbox}{W1}
-Use the chain rule to find $\delta^{L}$, then $\delta^{l}$ from
-$\delta^{l+1}$, then the gradients.  Note: node $j$ in layer $l$ feeds
-\emph{every} node in layer $l+1$.
+Chain rule along the chain: $\delta^{L}$, then $\delta^{l}$ from
+$\delta^{l+1}$, then $\partial C/\partial w^{l}$ and
+$\partial C/\partial b^{l}$.
 \end{boardbox}
 \end{column}
-\begin{column}{0.46\textwidth}
+\begin{column}{0.61\textwidth}
 \pause
-\begin{block}{Result ($\circ$: element-wise product)}
+\begin{block}{Result: one chain-rule factor per line}
 \vspace{-6pt}
-\begin{align*}
-  \bm{\delta}^{L}&=f_{L}'(\bm{z}^{L})\circ\frac{\partial C}{\partial\bm{a}^{L}}\\
-  \bm{\delta}^{l}&=\bigl((\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}\bigr)\circ f'(\bm{z}^{l})\\
-  \frac{\partial C}{\partial\bm{b}^{l}}&=\bm{\delta}^{l},\qquad
-  \frac{\partial C}{\partial\bm{W}^{l}}=\bm{\delta}^{l}\,(\bm{a}^{l-1})^{T}
-\end{align*}
+\begin{alignat*}{2}
+  \delta^{L}&=f_{L}'(z^{L})\,\frac{\partial C}{\partial a^{L}}
+     &\quad&{\color{gray}\textstyle\partial C/\partial a^{L}\cdot da^{L}/dz^{L}}\\
+  \delta^{l}&=\delta^{l+1}\,w^{l+1}\,f'(z^{l})
+     &&{\color{gray}\textstyle\partial C/\partial z^{l+1}\cdot\partial z^{l+1}/\partial a^{l}\cdot da^{l}/dz^{l}}\\
+  \frac{\partial C}{\partial w^{l}}&=\delta^{l}\,a^{l-1}
+     &&{\color{gray}\textstyle\partial C/\partial z^{l}\cdot\partial z^{l}/\partial w^{l}}\\
+  \frac{\partial C}{\partial b^{l}}&=\delta^{l}
+     &&{\color{gray}\textstyle\partial C/\partial z^{l}\cdot 1}
+\end{alignat*}
 \end{block}
-\vspace{-6pt}
-\footnotesize Key step, summing over every path through layer $l+1$:
-$\delta^{l}_{j}=\sum_{k}\delta^{l+1}_{k}\,w^{l+1}_{kj}\,f'(z^{l}_{j})$.
-\small
+\vspace{-4pt}
 \begin{itemize}
-  \item Start at the output, go \emph{backwards}.  Each $\bm{\delta}^{l}$
-        reuses $\bm{\delta}^{l+1}$: the gradient costs about one extra
-        forward pass.
-  \item Weight gradient $=$ error at the node it goes \emph{into} $\times$
-        signal from the node it comes \emph{from}.
-  \item The error is multiplied by $f'$ in every layer.
+  \item Start at the output, go \emph{backwards}: each $\delta^{l}$ reuses
+        $\delta^{l+1}$.
+  \item The error picks up a factor $w\,f'$ in every layer.
 \end{itemize}
 \end{column}
 \end{columns}
+\end{frame}
+
+\begin{frame}{Many nodes per layer: where the matrices come in}
+\begin{columns}[T]
+\begin{column}{0.49\textwidth}
+\centering
+\begin{tikzpicture}[x=1.9cm,y=0.62cm,>=Stealth,
+    v/.style={circle,draw,minimum size=0.55cm,inner sep=0pt,font=\scriptsize}]
+  \foreach \k in {1,2,3} \node[v] (n\k) at (1,1-\k) {$k$};
+  \node[v,fill=orange!25,thick] (j) at (0,-1) {$j$};
+  \foreach \k in {1,2,3} \draw[->,thick,structure.fg] (j)--(n\k);
+  \node[font=\scriptsize,above] at (0,0.4) {layer $l$};
+  \node[font=\scriptsize,above] at (1,0.4) {layer $l+1$};
+  \node[font=\scriptsize,structure.fg] at (0.5,0.25) {$w^{l+1}_{kj}$};
+  \node[font=\scriptsize,right] at (1.15,-1) {$\delta^{l+1}_{k}$};
+\end{tikzpicture}\par
+\small\raggedright
+Node $j$ feeds \emph{every} node $k$ of layer $l+1$, so its error comes
+back along every edge:
+\[
+  \delta^{l}_{j}=\sum_{k}w^{l+1}_{kj}\,\delta^{l+1}_{k}\,f'(z^{l}_{j})
+\]
+The sum runs over the \emph{first} index of $\bm{W}^{l+1}$, so in
+matrix form it is $(\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}$.
+\end{column}
+\begin{column}{0.49\textwidth}
+\centering
+\begin{tikzpicture}[x=2.4cm,y=0.62cm,>=Stealth,
+    v/.style={circle,draw,minimum size=0.55cm,inner sep=0pt,font=\scriptsize}]
+  \node[v,fill=blue!10] (k) at (0,-1) {$k$};
+  \node[v,fill=orange!25,thick] (j) at (1,-1) {$j$};
+  \draw[->,thick,structure.fg] (k)--(j) node[midway,above,font=\scriptsize]{$w^{l}_{jk}$};
+  \node[font=\scriptsize,below=1pt of k] {$a^{l-1}_{k}$ (from)};
+  \node[font=\scriptsize,below=1pt of j] {$z^{l}_{j}$, $\delta^{l}_{j}$ (into)};
+  \node[font=\scriptsize,above] at (0,0.4) {layer $l-1$};
+  \node[font=\scriptsize,above] at (1,0.4) {layer $l$};
+\end{tikzpicture}\par
+\small\raggedright
+\vspace{2pt}
+One weight, one product:
+\[
+  \frac{\partial C}{\partial w^{l}_{jk}}=\delta^{l}_{j}\,a^{l-1}_{k}
+  \quad\Rightarrow\quad
+  \frac{\partial C}{\partial\bm{W}^{l}}=\bm{\delta}^{l}(\bm{a}^{l-1})^{T},
+\]
+an outer product.
+\end{column}
+\end{columns}
+\vspace{2pt}
+\footnotesize\textbf{Shape check:} $\bm{W}^{l+1}$ is $(n_{l+1},n_{l})$, so
+$(\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}$ has $n_{l}$ entries, and
+$\bm{\delta}^{l}(\bm{a}^{l-1})^{T}$ is $(n_{l},n_{l-1})$, the shape of
+$\bm{W}^{l}$.
+\pause
+\vspace{-2pt}
+\begin{block}{The four equations ($\circ$: element-wise product)}
+\vspace{-8pt}
+\[
+  \bm{\delta}^{L}=f_{L}'(\bm{z}^{L})\circ\frac{\partial C}{\partial\bm{a}^{L}},\quad
+  \bm{\delta}^{l}=\bigl((\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}\bigr)\circ f'(\bm{z}^{l}),\quad
+  \frac{\partial C}{\partial\bm{W}^{l}}=\bm{\delta}^{l}(\bm{a}^{l-1})^{T},\quad
+  \frac{\partial C}{\partial\bm{b}^{l}}=\bm{\delta}^{l}
+\]
+\end{block}
+\vspace{-2pt}
+\footnotesize In code (samples in rows) the same equations appear transposed,
+e.g.\ $\partial C/\partial\bm{W}^{l}=(\bm{A}^{l-1})^{T}\bm{\Delta}^{l}$.
 \end{frame}
 
 %% ====================================================================
@@ -224,9 +314,9 @@ default in deep networks.
 \begin{quickq}[why not start at zero?]
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
-\question{A network with tanh hidden layers starts with \emph{all}
-weights and biases equal to zero.  Look at the four equations: which
-gradients are non-zero after the first backward pass?}
+\question{A network starts with \emph{all} weights and biases equal to
+zero.  Look at the equations: which gradients are non-zero after the
+first backward pass?  What happens after that?}
 \vspace{4pt}
 \begin{align*}
   \bm{\delta}^{l}&=\bigl((\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}\bigr)\circ f'(\bm{z}^{l})\\
@@ -235,19 +325,19 @@ gradients are non-zero after the first backward pass?}
 \end{align*}
 \end{column}
 \begin{column}{0.48\textwidth}
-\answer{Only the \textbf{output bias}.
+\answer{Only the \textbf{output layer}.
 \begin{itemize}
-  \item All hidden $\bm{a}^{l}=\tanh(\bm{0})=\bm{0}$, so
-        $\partial C/\partial\bm{W}^{l}=\bm{\delta}^{l}(\bm{a}^{l-1})^{T}=0$
-        for $l\ge2$.
-  \item $\bm{\delta}^{l}=(\bm{W}^{l+1})^{T}\bm{\delta}^{l+1}=\bm{0}$ in
-        every hidden layer, so $\bm{W}^{1}$ and the hidden biases get
-        nothing.
+  \item $\bm{W}^{l+1}=\bm{0}$ gives $\bm{\delta}^{l}=\bm{0}$ in every
+        hidden layer, whatever $f$ is: no hidden weight or bias moves.
+  \item Learning has to creep backwards from the output, one layer per
+        step, and every gradient is a product of near-zero weights.
+        Slow to start at best; if $f(0)=0$ the network never leaves
+        $\bm{W}=\bm{0}$.
+  \item \textbf{Symmetry}: all units in a layer start identical, so they
+        get identical gradients and stay copies of each other.  The same
+        happens for any equal non-zero start.
 \end{itemize}
-The network is stuck: it can only learn a constant.\\[3pt]
-All weights equal but $\neq0$: every unit in a layer gets the same
-gradient and stays a copy of the others.  \textbf{Random weights break
-the symmetry.}}
+\textbf{Random weights break the symmetry.}}
 \end{column}
 \end{columns}
 \end{quickq}
@@ -256,11 +346,15 @@ the symmetry.}}
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
 \small
-\textbf{Random}, to break the symmetry.  \textbf{The scale matters.}  With $M$ inputs per node and weights of
-variance $\sigma_w^{2}$:
+\textbf{Random}, to break the symmetry.  \textbf{The scale matters.}
+$\bm{z}=\bm{W}\bm{a}+\bm{b}$, with independent zero-mean entries of
+variance $\sigma_w^{2}$ in $\bm{W}$ and $\sigma_b^{2}$ in $\bm{b}$:
 \[
-  \operatorname{Var}(z)\approx M\,\sigma_w^{2}\,\overline{a^{2}}
+  \mathbb{E}[\bm{z}\bm{z}^{T}]
+  =\mathbb{E}[\bm{W}\bm{a}\bm{a}^{T}\bm{W}^{T}]+\mathbb{E}[\bm{b}\bm{b}^{T}]
+  =\bigl(M\sigma_w^{2}\,\overline{a^{2}}+\sigma_b^{2}\bigr)\bm{I}
 \]
+Usually $\bm{b}=\bm{0}$ at the start, so $\operatorname{Var}(z)=M\sigma_w^{2}\,\overline{a^{2}}$.
 \begin{itemize}
   \item $\sigma_w$ too large: $|z|$ large, tanh/sigmoid saturate,
         gradients blow up or die.
@@ -284,22 +378,50 @@ it decides whether \emph{gradients} survive the backward pass.
 \end{columns}
 \end{frame}
 
-\begin{frame}{Initialisation in a deep network}
+\begin{frame}{The wrong scale breaks a deep network before training starts}
+\small A deep network: \textbf{10 hidden layers of 256 tanh units}, one
+linear output unit, no biases.  Input: 500 random Gaussian vectors of length
+256; targets: random numbers; cost $C=\tfrac12\,\overline{(a^{L}-y)^{2}}$.
+Nothing is trained: one forward and one backward pass.\par
 \centering
 \includegraphics[width=\textwidth]{v2_init}\par
 \raggedright
-\small A network with 10 hidden layers of 256 units, random inputs, before
-any training.
 \begin{itemize}
-  \item \textbf{Left:} with $\sigma_w=1$ almost all tanh units sit at
-        $\pm1$ (saturated); with $\sigma_w=0.01$ everything is close to $0$.
-  \item \textbf{Middle:} the gradients grow by a factor $10^{4}$ from layer
-        10 to layer 1 ($\sigma_w=1$), or are tiny everywhere
-        ($\sigma_w=0.01$).  With $\sigma_w^{2}=1/M$ they are the same size
-        in every layer.
-  \item \textbf{Right:} for ReLU, $1/M$ is not enough; $2/M$ keeps the
-        signal alive.
+  \item \textcolor[HTML]{BB5566}{\textbf{Too large:}} saturated units and
+        exploding gradients.
+        \textcolor[HTML]{777777}{\textbf{Too small:}} the signal dies and the
+        gradients vanish.  Either way, gradient descent cannot train the
+        network.
+  \item \textcolor[HTML]{004488}{\textbf{$\sigma_w^{2}=1/M$:}} signal and
+        gradients keep their size through all 10 layers.
 \end{itemize}
+\end{frame}
+
+\begin{frame}{The right scale depends on the activation function}
+\begin{columns}[T]
+\begin{column}{0.46\textwidth}
+\small
+The same network with \textbf{ReLU} instead of tanh, initialised with the
+rule that worked for tanh, $\sigma_w^{2}=1/M$:
+\begin{itemize}
+  \item The signal shrinks by $\sqrt2$ in \emph{every} layer: $1/23$ of its
+        size after 10 layers, $\sim10^{-7}$ after 50.
+  \item No error message.  The network just trains slowly, or not at all.
+\end{itemize}
+\vspace{4pt}
+\textbf{Why:} ReLU sets half of its inputs to zero, so it passes on only
+half the variance.  He initialisation, $\sigma_w^{2}=2/M$, makes up for it.
+\vspace{6pt}
+\begin{block}{Take-away}
+An initialisation rule belongs to an activation function.  Change the
+activation, and check the scale again.
+\end{block}
+\end{column}
+\begin{column}{0.52\textwidth}
+\centering
+\includegraphics[width=\textwidth]{v2_init_relu}
+\end{column}
+\end{columns}
 \end{frame}
 
 \begin{frame}{Output activation and cost function come in pairs}
@@ -329,14 +451,13 @@ $K$ classes, $\bm{y}$ one-hot & softmax, $a_k=\frac{e^{z_k}}{\sum_le^{z_l}}$ & $
 Jacobian $\partial a_k/\partial z_j$, but the same cancellation happens.}
 \end{column}
 \begin{column}{0.5\textwidth}
-\begin{boardbox}{W2}
-Compute $\delta^{L}=f'(z)\,\dfrac{\partial C}{\partial a}$ for the sigmoid
-with cross entropy.
-\end{boardbox}
+\small
+For these pairs, $\delta^{L}=f_{L}'(z^{L})\,\partial C/\partial a^{L}$.
+What happens to $f_{L}'$?
 \pause
-\begin{block}{The connection}
-For all three pairs, $f'$ \emph{cancels} against $\partial C/\partial a$.
-Sigmoid: $\sigma'=a(1-a)$ and
+\begin{block}{$f_L'$ cancels}
+For all three pairs, $f_{L}'$ \emph{cancels} against
+$\partial C/\partial a$.  Sigmoid: $\sigma'=a(1-a)$ and
 $\frac{\partial C}{\partial a}=\frac{a-y}{a(1-a)}$, so
 \[
   \boxed{\;\bm{\delta}^{L}=\bm{a}^{L}-\bm{y}\;}\quad
@@ -348,43 +469,53 @@ $\frac{\partial C}{\partial a}=\frac{a-y}{a(1-a)}$, so
 \end{frame}
 
 \begin{frame}{What goes wrong with a mismatched pair: sigmoid $+$ squared error}
-\centering
-\includegraphics[width=0.78\textwidth]{v2_delta_heads}\par
-\raggedright
-\begin{columns}[T]
-\begin{column}{0.48\textwidth}
-Without the cancellation:
-\[
-  \delta^{L}=(a-y)\,\sigma'(z)=(a-y)\,a(1-a).
-\]
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.46\textwidth}
+\small
+Sigmoid output $a=\sigma(z)$, target $y=1$:
+\vspace{-6pt}
+\begin{alignat*}{2}
+  &\text{cross entropy:}\quad &\delta^{L}_{\mathrm{CE}}&=a-1\\
+  &\text{squared error:}\quad &\delta^{L}_{\mathrm{SE}}&=(a-1)\,
+     \textcolor[HTML]{BB5566}{\underbrace{a(1-a)}_{\sigma'(z)}}
+\end{alignat*}
 \end{column}
 \begin{column}{0.5\textwidth}
 \small
-Target $y=1$, but $z=-5$: confidently wrong, $a=0.0067$.\\[3pt]
-cross entropy: $\delta=-0.993$\\
-squared error: $\delta=-0.0066$, \textbf{150 times smaller}.
+Here $\sigma'$ does \emph{not} cancel, and $\sigma'\to0$ as $a\to0$.\\
+At $z=-5$: $\delta^{L}_{\mathrm{SE}}$ is \textbf{150$\times$ smaller}
+than $\delta^{L}_{\mathrm{CE}}$.
+\vspace{-4pt}
+\begin{block}{}
+Squared error: the more confidently wrong, the \emph{less} it learns.
+\end{block}
 \end{column}
 \end{columns}
-\vspace{4pt}
-\begin{block}{}
-With the squared error, the more confidently wrong the network is, the
-\emph{less} it learns.  With the cross entropy it learns the most.
-\end{block}
+\vspace{-2pt}
+\centering
+\includegraphics[width=0.76\textwidth]{v2_delta_heads}
 \end{frame}
 
 \begin{quickq}[which image trains the network?]
 \begin{columns}[c]
-\begin{column}{0.56\textwidth}
+\begin{column}{0.44\textwidth}
 \includegraphics[width=\textwidth]{v2_mnist_question}
 \end{column}
-\begin{column}{0.42\textwidth}
+\begin{column}{0.54\textwidth}
 \question{A network trained on handwritten digits (softmax $+$ cross
-entropy) sees images A and B.  Using
-$\bm{\delta}^{L}=\bm{a}^{L}-\bm{y}$: which image changes the weights more?}
-\answer{A: $\bm{\delta}^{L}\approx\bm{0}$, nothing left to learn.\\
-B: $\delta_1=0.24-1=-0.76$, and $+0.20$, $+0.19$, \dots\ for the other
-classes.  Raise the score of class 1, lower the rest.\\[3pt]
-The network learns from what it gets wrong or is unsure about.}
+entropy) sees images A and B.  The error
+$\bm{\delta}^{L}=\bm{a}^{L}-\bm{y}$ has one component per class
+$0,\dots,9$; $\bm{y}$ is the one-hot label.  Which image changes the
+weights more?}
+\answer{A, label 0: $\bm{a}\approx\bm{y}=(1,0,\dots,0)$, so
+$\bm{\delta}^{L}\approx\bm{0}$: nothing to learn.\\[2pt]
+B, label 1: $\bm{y}=(0,1,0,\dots,0)$.
+\begin{itemize}
+  \item $\delta_{1}=a_{1}-1=0.24-1=-0.76$: the only negative component.
+  \item Every other $\delta_{k}=a_{k}-0=a_{k}>0$.
+\end{itemize}
+Raise the score of class 1, lower the rest.  The network learns from
+what it gets wrong or is unsure about.}
 \end{column}
 \end{columns}
 \end{quickq}
@@ -433,7 +564,7 @@ job with far fewer units.
 \small
 One ReLU unit $v\,\mathrm{ReLU}(wx+b)$ is zero, then a straight line: one
 \emph{kink}, at $x=-b/w$.
-\begin{boardbox}{W3}
+\begin{boardbox}{W2}
 Build a ``hat'' from three ReLU units.  Then build any curve from hats.
 \end{boardbox}
 \pause
@@ -510,8 +641,9 @@ $g(x_i)$, only the equation.\\[4pt]
           g_t(x)=h(x)+B(x)\,N(x),
         \]
         $h$ satisfies the conditions, $B=0$ where they are imposed.
-  \item The \textbf{residual}: $r(x)=g_t'(x)+\kappa g_t(x)$, zero for the
-        exact solution.
+  \item The \textbf{residual}: left side minus right side of the equation,
+        $r(x)=g_t'(x)-\bigl(-\kappa\,g_t(x)\bigr)$, zero for the exact
+        solution.
   \item The \textbf{cost}: the mean squared residual at points $x_i$ we
         choose ourselves (\emph{collocation points}),
         \[
@@ -522,8 +654,8 @@ $g(x_i)$, only the equation.\\[4pt]
 \begin{column}{0.46\textwidth}
 \begin{block}{What is new}
 The residual contains $g_t'$, so we need $\partial N/\partial x$: a
-derivative with respect to the \emph{input}, not the weights.  In code:
-automatic differentiation (\texttt{jax.grad} with respect to $x$).
+derivative with respect to the \emph{input}, not the weights.  It is just as
+easy to compute as the derivatives with respect to the weights.
 \end{block}
 \begin{block}{What is not new}
 Network, optimiser and backpropagation for the weights.  It is regression
@@ -539,13 +671,13 @@ with ``target'' $r=0$.
 \small
 $g'=-\kappa g$, $g(0)=g_0$, with $\kappa=2$, $g_0=10$.  Exact solution:
 $g=g_0e^{-\kappa x}$.
-\begin{boardbox}{W4}
+\begin{boardbox}{W3}
 Build $g_t$, compute $g_t'$, write the residual and the cost.
 \end{boardbox}
 \pause
 \[
   g_t=g_0+x\,N(x),\qquad
-  r=\underbrace{N+x\,N'}_{g_t'}+\kappa\,(g_0+x\,N)
+  r=\underbrace{N+x\,N'}_{g_t'}-\bigl(-\kappa\,(g_0+x\,N)\bigr)
 \]
 $g_t(0)=g_0$ whatever the network does.
 \end{column}
@@ -563,9 +695,16 @@ points: max error $3\times10^{-3}$.}
 \begin{columns}[T]
 \begin{column}{0.54\textwidth}
 \small
-Poisson, diffusion and wave equations contain \emph{second} derivatives,
-so we need $N''(x)$.
-\begin{boardbox}{W5}
+{\centering
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}ccc@{}}
+Poisson & diffusion & wave\\[2pt]
+$-g''(x)=f(x)$ & $\partial_{t}g=\partial_{x}^{2}g$ &
+$\partial_{t}^{2}g=c^{2}\,\partial_{x}^{2}g$
+\end{tabular}\par}
+\vspace{6pt}
+All three contain a \emph{second} derivative, so we need $N''(x)$.
+\begin{boardbox}{W4}
 Differentiate a one-hidden-layer network
 $N(x)=\sum_jv_j\,f(w_jx+b_j)+c$ twice with respect to $x$.
 \end{boardbox}
@@ -601,10 +740,6 @@ ReLU & $\mathbf{0}$\\
 \small
 Recipe: $g_t=h(x)+B(x)\,N(x)$, where $h$ satisfies the conditions and
 $B=0$ wherever a condition is imposed.
-\begin{boardbox}{W6}
-Build $g_t$ for each set of conditions, and check them.
-\end{boardbox}
-\pause
 \begin{center}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}ll@{}}
@@ -617,9 +752,10 @@ $g(0)=g_0,\;g'(0)=v_0$ & $g_0+v_0x+x^{2}N$\\
 \bottomrule
 \end{tabular}
 \end{center}
+\textbf{Check one row:} put $x=0$ and $x=1$ (for the last row, also
+differentiate once).  The $N$ term drops out every time.
 \end{column}
 \begin{column}{0.48\textwidth}
-\onslide<2->{
 \begin{block}{The good}
 The conditions hold \emph{exactly}, for any weights: at the start, and
 after every step.  The optimiser only has to solve the equation.
@@ -628,7 +764,7 @@ after every step.  The optimiser only has to solve the equation.
 $g_t$ must be designed by hand for every problem.  A condition on the
 derivative, like $g'(1)=0$, needs a trick.  A curved boundary in 2D or
 3D: impractical.
-\end{block}}
+\end{block}
 \end{column}
 \end{columns}
 \end{frame}
@@ -754,19 +890,26 @@ soft, $\lambda=10$ & $6.5\times10^{-3}$ & $6\times10^{-3}$\\
 \question{We solve $\partial_tu=\partial_x^{2}u$ with the soft cost
 $L=L_{\mathrm{PDE}}+\lambda(L_{\mathrm{IC}}+L_{\mathrm{BC}})$, but use a
 \textbf{ReLU} network $u=N(x,t)$.  What does training converge to?}
-\answer{$N$ is piecewise linear in $x$: all its curvature sits in the kinks,
-which the collocation points never hit.  So automatic differentiation returns
-$\partial_x^{2}N=0$ at every sample, and
-$L_{\mathrm{PDE}}=\frac1n\sum_i(\partial_tN)^{2}$.\\[3pt]
-The optimiser makes $N$ \emph{independent of $t$}: a piecewise-linear
-$N\approx\sin\pi x$ for all times.  Initial and boundary conditions hold, the
-sampled residual is close to zero, and the solution never diffuses.  We tried
-it: cost $6\times10^{-4}$, but RMSE $0.65$ (hard trial solution:
-$1.8\times10^{-3}$).\\[3pt]
-\textbf{Satisfying the PDE at almost every point does not mean solving it.}
-The sampled residual only measures the true error if $N$ is smooth enough
-($C^{2}$ in $x$), so use smooth activations, and always check against
-something you know.}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\answer{\begin{itemize}
+  \item ReLU gives $\partial_x^{2}N=0$ at every sample, so
+        $L_{\mathrm{PDE}}$ only asks for $\partial_tN=0$.
+  \item The network learns $u\approx\sin\pi x$ for all $t$: it never
+        diffuses.  Small cost ($6\times10^{-4}$), wrong answer: RMSE
+        $0.65$ (vs.\ $1.8\times10^{-3}$).
+  \item \textbf{A small residual is not a solution.}  Use smooth
+        activations, and check against something you know.
+\end{itemize}}
+\end{column}
+\begin{column}{0.48\textwidth}
+\centering
+\IfFileExists{figures/v2_relu_pinn.png}%
+  {\includegraphics[width=\textwidth]{v2_relu_pinn}}%
+  {\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering figure pending:\\
+   \texttt{v2\_relu\_pinn.png}}}}
+\end{column}
+\end{columns}
 \end{quickq}
 
 \begin{frame}{Why soft constraints at all? Inverse problems}
@@ -830,6 +973,49 @@ needs an error bar.
 \textbf{Bottom line:} simple problems in one or two dimensions: use
 standard methods.  Networks pay off in high dimensions, complicated
 geometries and inverse problems.  \textbf{Always compare with something.}
+\end{frame}
+
+\begin{frame}{Read more}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.49\textwidth}
+\begin{block}{Parts 1--3: training a network}
+\footnotesize
+\begin{itemize}
+  \item \textbf{Course book} (M.~Hjorth-Jensen, \emph{Machine Learning
+        and the Physical Sciences}, the lecture notes): Section 8.8
+        (backpropagation; 8.8.1 scalar chain, 8.8.4 four equations), 8.9
+        (vanishing gradients), 8.10 (initialisation), 8.11 (output and
+        cost), 8.4 (universal approximation).
+  \item \textbf{Goodfellow et al.}, \emph{Deep Learning}: 6.5
+        (backpropagation), 6.2.2 (output units), 6.3, 6.4.1, 8.2.5, 8.4
+        (initialisation).
+  \item \textbf{Mehta et al.}, \emph{A high-bias, low-variance
+        introduction to ML for physicists}, Phys.\ Rep.\ \textbf{810}
+        (2019): Section IX.A--C.
+  \item \textbf{Hastie et al.}, \emph{Elements of Statistical Learning}:
+        11.3--11.4, 11.5.1 (starting values).
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{block}{Part 4: differential equations}
+\footnotesize
+\begin{itemize}
+  \item \textbf{Course book:} Chapter 9: Sections 9.1--9.3 (trial
+        solution, $\partial N/\partial x$ and why not ReLU, decay),
+        9.5--9.7 (Poisson, PDEs, diffusion), 9.10 (PINNs, inverse
+        problems).
+  \item I.~E.~Lagaris, A.~Likas, D.~I.~Fotiadis, IEEE Trans.\ Neural
+        Netw.\ \textbf{9}, 987 (1998): trial solutions.
+  \item M.~Raissi, P.~Perdikaris, G.~E.~Karniadakis, J.\ Comput.\ Phys.\
+        \textbf{378}, 686 (2019): PINNs.
+\end{itemize}
+\end{block}
+\textbf{Code:} every figure and number on these slides comes from
+\texttt{week42monday\_v2.ipynb}.
+\end{column}
+\end{columns}
 \end{frame}
 
 \begin{frame}{Summary}
