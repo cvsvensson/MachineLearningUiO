@@ -3,7 +3,7 @@
 %% result and the evidence (figures, numbers); the derivations are done on
 %% the blackboard.  Blue "On the board" boxes mark where the lecturer turns
 %% to the board; the result appears on the next click.  The board work is
-%% written out in week42monday_whiteboard.md (sections W1-W4).
+%% written out in week42monday_whiteboard.md (one section per box, by topic).
 %% Week 41 Monday already derived the four backpropagation equations,
 %% delta^L = a - y for the three output/cost pairs, vanishing gradients and
 %% Xavier/He; here they are a short recap, and the time goes to Part 4.
@@ -41,7 +41,7 @@
 \newenvironment{boardbox}[1]{%
   \setbeamercolor{block title}{bg=boardblue,fg=white}%
   \setbeamercolor{block body}{bg=boardblue!8}%
-  \begin{block}{On the board (#1)}}{\end{block}}
+  \begin{block}{On the board: #1}}{\end{block}}
 
 \setbeamertemplate{footline}[frame number]
 \setbeamertemplate{blocks}[rounded][shadow=false]
@@ -86,10 +86,7 @@
 \end{column}
 \end{columns}
 \vspace{8pt}
-\begin{boardbox}{take notes}
-Most derivations today are done on the blackboard.  The slides give the
-setup and the results.
-\end{boardbox}
+
 \small
 \textbf{Tuesday:} backpropagation in code.  \textbf{Exercises week 42:}
 deadline Friday October 16.
@@ -181,7 +178,7 @@ Node $j$ in layer $l$, one sample:
 \]
 The \emph{error} of node $j$ is
 $\displaystyle\delta^{l}_{j}=\frac{\partial C}{\partial z^{l}_{j}}$.
-\begin{boardbox}{W1}
+\begin{boardbox}{Chain rule}
 Chain rule: $\delta^{L}_{j}$, then $\delta^{l}_{j}$ from all the
 $\delta^{l+1}_{k}$, then $\partial C/\partial w^{l}_{ji}$ and
 $\partial C/\partial b^{l}_{j}$. 
@@ -706,7 +703,7 @@ with ``target'' $r=0$.
 \small
 $g'+\alpha g=0$, $g(0)=g_0$, with $\alpha=2$, $g_0=10$.  Exact solution:
 $g=g_0e^{-\alpha x}$.
-\begin{boardbox}{W3}
+\begin{boardbox}{Exponential decay}
 Build $g_t$, compute $g_t'$, write the residual and the cost.
 \end{boardbox}
 \pause
@@ -739,7 +736,7 @@ $\partial_{t}^{2}g-c^{2}\,\partial_{x}^{2}g=0$
 \end{tabular}\par}
 \vspace{6pt}
 All three contain a \emph{second} derivative, so we need $N''(x)$.
-\begin{boardbox}{W4}
+\begin{boardbox}{Second derivatives}
 Differentiate a one-hidden-layer network
 $N(x)=\sum_jv_j\,f(w_jx+b_j)+c$ twice with respect to $x$.
 \end{boardbox}
@@ -806,7 +803,7 @@ $g_t$ must be designed by hand for every problem. A curved boundary in 2D or
 \begin{columns}[T]
 \begin{column}{0.52\textwidth}
 \small
-\textbf{Logistic growth} (non-linear):
+\textbf{Logistic growth}:
 \[g'-2g(1-g)=0,\qquad g(0)=1.2.\]
 \textbf{Poisson}:
 \[g''+(3x+x^{2})e^{x}=0,\qquad g(0)=g(1)=0.\]
